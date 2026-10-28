@@ -133,7 +133,7 @@ module aes_tb #(
       // Write results to CSV
       $fwrite(fd_o, "%032h, %032h\n", tb_result, parsed_result_py);
 
-      // Comparation testbench results to the python script's result
+      // Comparing testbench results to the python script's result
       check_result(ival, tb_result, parsed_result_py);
     end
 

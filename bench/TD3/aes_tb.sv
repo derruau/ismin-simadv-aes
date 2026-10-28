@@ -13,8 +13,7 @@ typedef enum logic {
   AES_DECIPHER = '0,
   AES_ENCIPHER = '1
 } aes_operation_t;
-
-// Classe utilisée pour 
+ 
 class Inputs; 
   rand logic[127:0]     cleartext;
   rand logic[255:0]     key;
@@ -141,7 +140,7 @@ module aes_tb #(
       // Write results to CSV
       $fwrite(fd_o, "%032h, %s\n", tb_result, parsed_result_py);
 
-      // Comparation testbench results to the python script's result
+      // Comparing testbench results to the python script's result
       check_result(ival, tb_result, parsed_result_py);
     end
 

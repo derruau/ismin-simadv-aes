@@ -127,6 +127,7 @@ module aes_tb #(
         // Writing the result in the output file.
         $fwrite(fd_o, "%h, %h\n", pt_data, tb_result);
 
+        // Comparing testbench results to the python script's result
         check_result(tb_result, ct_data);
     end
 
