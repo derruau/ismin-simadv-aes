@@ -1,0 +1,12 @@
+# Folders
+libs/
+work/
+logs/
+data/
+__pycache__/
+venv/
+.vscode/
+
+# Files
+*.so
+modelsim.ini
