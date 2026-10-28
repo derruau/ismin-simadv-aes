@@ -43,38 +43,47 @@ check_versions() {
 # Prechecks - do commands exist
 #============================================================
 
-require_command python
-require_command python-config
+PY="python${TARGET_PY_VER}"
+PY_CONFIG="python${TARGET_PY_VER}-config"
+
+require_command $PY
+require_command $PY_CONFIG
 require_command gcc
 
 #============================================================
 # Prechecks - do python versions match ?
 #============================================================
 
-PY_VER=$(python --version | sed 's/Python \([0-9]*\.[0-9]*\).*/\1/')
-PY_CFG_VER=$(basename $(python-config --prefix) | sed 's/\([0-9]*\.[0-9]*\).*/\1/')
 
-check_versions $TARGET_PY_VER $PY_VER python
-check_versions $TARGET_PY_VER $PY_CFG_VER python-config
+PY_VER=$("$PY" --version | sed 's/Python \([0-9]*\.[0-9]*\).*/\1/')
+PY_CFG_VER=$(basename "$("$PY_CONFIG" --includes| sed 's/-I\(.*\) /\1/')" | sed 's/python\([0-9]*\.[0-9]*\)/\1/')
+
+check_versions $TARGET_PY_VER $PY_VER $PY
+check_versions $TARGET_PY_VER $PY_CFG_VER $PY_CONFIG
 
 #============================================================
 # Compilation script
 #============================================================
 
-PY_SO=$(find $(python-config --prefix) -name "*${TARGET_PY_VER}.so")
+PY_SO=$(find $("$PY_CONFIG" --prefix) -name "*${TARGET_PY_VER}.so" | tail -1)
 
 # Checking that the shared lib was found.
-if [ ! -f $PY_SO ];
+if [ ! -f "$PY_SO" ];
 then
     echo "Targetted python version's shared lib could not be found"
     exit 1
 fi
 
+# Fix because -Wl,-rpath isn't guaranteed with $PY_CONFIG
+PY_LIBDIR=$("$PY" -c 'import sysconfig; print(sysconfig.get_config_var("LIBDIR"))')
+
 # Compilation command
 gcc \
+    -DPYTHON_SHARED_LIB=\"$(echo ${C_FILE_PATH%.*}).so\" \
     -fPIC -shared \
-    $(python-config --includes) \
+    $("$PY_CONFIG" --includes) \
     -o $(echo ${C_FILE_PATH%.*}).so \
     $C_FILE_PATH \
     -Wl,--no-undefined \
-    $(python-config --ldflags --embed)
+    $("$PY_CONFIG" --ldflags --embed) \
+    -Wl,-rpath,"$PY_LIBDIR"

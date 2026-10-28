@@ -235,7 +235,7 @@ module aes_tb #(
       key_in_py  = $sformatf("%032h", key_in[255:128]);
 
       // Call Python AES implementation
-      result_py = aes_c(data_in_py, key_in_py, 1);
+      result_py = aes_c(data_in_py, key_in_py, AES_ENCIPHER);
 
       // Convert Python result to logic [127:0]
       status_int = $sscanf(result_py, "%h", result_out);

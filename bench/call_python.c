@@ -5,7 +5,7 @@
 #include <dlfcn.h>
 
 // Path to the TP folder, where aes_tb.sv lives.
-#define TP_PATH "\"./TP\""
+#define TP_PATH "\"./bench\""
 
 // Selects the operation for the AES, either encryption or decryption
 typedef enum {
