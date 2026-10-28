@@ -33,6 +33,36 @@ SHARED_LIB_PATH=./bench/call_python
 # RTL_FOLDER_PATH='./rtl/'
 RTL_FOLDER_PATH=./rtl/
 
+#============================================================
+# Private Variables - DO NOT CHANGE
+#============================================================
+
+# Location of the file which generates pairs
+# of test vectors for the first TD.
+# --- [ EXAMPLE] ---
+# TD1_GEN_TEST_VECTORS_SCRIPT=scripts/gen_aes_test_vectors.py
+TD1_GEN_TEST_VECTORS_SCRIPT=scripts/gen_aes_test_vectors.py
+
+# Location of the logs folder, where info about modelsim is stored
+# --- [ EXAMPLE] ---
+# LOGS_PATH=./logs/
+LOGS_PATH=./logs/
+
+# Location of the modelsim.ini file
+# --- [ EXAMPLE] ---
+# MODELSIM_INI_PATH="$LOGS_PATH/modelsim.ini"
+MODELSIM_INI_PATH="$LOGS_PATH/modelsim.ini"
+
+# Location of the transcript file
+# --- [ EXAMPLE] ---
+# TRANSCRIPT_PATH="$LOGS_PATH/transcript"
+TRANSCRIPT_PATH="$LOGS_PATH/transcript"
+
+# Location of the vsim.wlf file
+# --- [ EXAMPLE] ---
+# WLF_PATH="$LOGS_PATH/vsim.wlf"
+WLF_PATH="$LOGS_PATH/vsim.wlf"
+
 
 #============================================================
 # Parameter parsing
@@ -122,15 +152,53 @@ echo "Selected TD: $TD"
 TB_PATH="${TB_PATH//%TD%/$TD}"
 
 #============================================================
-# Precheck
+# Prechecks for each TDs
 #============================================================
 
-if [ ! -f $SHARED_LIB_PATH ];
+# For the first TD, we should generate the plaintext/ciphertext pairs
+if [[ $TD == "TD1" ]]; then
+    echo "Initializing test vectors..."
+    python $TD1_GEN_TEST_VECTORS_SCRIPT || exit 1
+fi
+
+#============================================================
+# ModelSim initialization
+#============================================================
+
+mkdir -p "$LOGS_PATH"
+
+if [[ ! -f "$MODELSIM_INI_PATH" ]]; then
+    echo "Initializing ModelSim configuration..."
+    (cd "$LOGS_PATH" && vmap -c) || exit 1
+fi
+
+# Sets the MODELSIM variable, in which modelsim.ini is.
+export MODELSIM="$(realpath "$MODELSIM_INI_PATH")"
+
+#============================================================
+# Checking the shared library's existence
+#============================================================
+
+if [ ! -f "$SHARED_LIB_PATH.so" ];
 then
     echo "========== [ SHARED LIBRARY COMPILATION ] =========="
     echo "Shared library $SHARED_LIB_PATH not found, compiling it!"
-    ./scripts/build_c.sh
+    ./scripts/build_c.sh || exit 1
 fi
+
+#============================================================
+# Creating the work library
+#============================================================
+
+mkdir -p libs
+
+if [[ ! -d libs/work/_info ]]; then
+    echo "========== [ CREATING WORK LIBRARY ] =========="
+    vdel -lib libs/work/ -all
+    vlib libs/work || exit 1
+fi
+
+vmap work "$(realpath libs/work)" || exit 1
 
 #============================================================
 # Compilation script
@@ -141,17 +209,12 @@ STOP_SCRIPT=0
 if [[ $OPT_COMPILE_AES = true ]]; then
     echo "========== [ SOURCES COMPILATION ] =========="
 
-    mkdir -p libs/work
-    vdel -lib libs/work/ -all
-    vlib libs/work
-    vmap work libs/work
-
     while IFS= read -r -d '' path; do
         _VLOG_RESULT=$(vlog -sv -work work +acc "$path" 2>&1) || STOP_SCRIPT=1
-        _VLOG_RESULT=$(echo "$_VLOG_RESULT" | grep 'Error')
 
         echo "$(basename "$path"):"
-        echo "$_VLOG_RESULT" | sed 's/^/    /'
+        echo "$_VLOG_RESULT" | grep -Ei '^\*\* (error|fatal|warning|note):' | sed 's/^/    /' || true
+        echo "$_VLOG_RESULT" | grep -E 'Errors: [0-9]+, Warnings: [0-9]+' | tail -n 1 | sed 's/^/    /' || true
 
     done < <(find "$RTL_FOLDER_PATH" -type f \( -name '*.sv' -o -name '*.v' \) -print0)
 fi
@@ -160,18 +223,26 @@ fi
 if [[ $OPT_COMPILE_TB = true ]]; then
     echo "========== [ TESTBENCH COMPILATION ] =========="
     _VLOG_RESULT=$(vlog -sv -work work +acc "$TB_PATH" 2>&1) || STOP_SCRIPT=1
-    _VLOG_RESULT=$(echo "$_VLOG_RESULT" | grep 'Error')
 
     echo "$(basename $TB_PATH):"
-    echo "$_VLOG_RESULT" | sed 's/^/    /'
+    echo "$_VLOG_RESULT" | grep -Ei '^\*\* (error|fatal|warning|note):' | sed 's/^/    /' || true
+    echo "$_VLOG_RESULT" | grep -E 'Errors: [0-9]+, Warnings: [0-9]+' | tail -n 1 | sed 's/^/    /' || true
+
 fi
 
 # Creates the coverage file
-if [[ -n "$OPT_COVERAGE" ]]; then
+if [[ -n "$OPT_COVERAGE" && "$OPT_RUN" == true && "$STOP_SCRIPT" == 0 ]]; then
     echo "========== [ COVERAGE ] =========="
-    vopt $TB_MODULE_NAME -o ${TB_MODULE_NAME}_cov -work work +cover=sbcfte
 
-    $TB_MODULE_NAME=${TB_MODULE_NAME}_cov
+    if ! vopt "$TB_MODULE_NAME" \
+        -o "${TB_MODULE_NAME}_cov" \
+        -work work \
+        +cover=sbcfte; then
+        echo "ERROR: Coverage optimization failed." >&2
+        exit 1
+    fi
+
+    TB_MODULE_NAME="${TB_MODULE_NAME}_cov"
 fi
 
 #============================================================
@@ -186,8 +257,6 @@ if [[ $OPT_RUN = true ]]; then
         exit 1
     fi
 
-    mkdir -p logs
-
     vsim \
         $TB_MODULE_NAME \
         $OPT_COVERAGE \
@@ -198,7 +267,6 @@ if [[ $OPT_RUN = true ]]; then
         -voptargs=+acc \
         -work work \
         -do "run -all" \
-        -wlf logs/vsim.wlf \
-        -l logs/transcript \
-        -modelsimini logs/modelsim.ini
+        -wlf $WLF_PATH \
+        -l $TRANSCRIPT_PATH
 fi

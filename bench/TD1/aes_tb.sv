@@ -1,10 +1,9 @@
 `timescale 1ns/1ps
 
 module aes_tb #(
-  parameter INPUT_FILENAME  = "./data/pt_ct_pairs.csv",   // Path to the file containing the plaintexts and ciphertexts pairs
-  parameter OUTPUT_FILENAME = "./data/TD1_data_out.txt",  // Path to the output file to write the encrypted values to
-
-  parameter int CLK_FREQ_MHZ   = 50
+  parameter INPUT_FILENAME    = "./data/pt_ct_pairs.csv",   // Path to the file containing the plaintexts and ciphertexts pairs
+  parameter OUTPUT_FILENAME   = "./data/TD1_data_out.txt",  // Path to the output file to write the encrypted values to
+  parameter int CLK_FREQ_MHZ  = 50                          // Clock frequency in MHz
 ) ();
 
   //----------------------------------------------------------------
