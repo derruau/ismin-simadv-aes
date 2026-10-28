@@ -1,9 +1,9 @@
 `timescale 1ns/1ps
 
 module aes_tb #(
-  parameter INPUT_FILENAME    = "./data/pt_ct_pairs.csv",   // Path to the file containing the plaintexts and ciphertexts pairs
-  parameter OUTPUT_FILENAME   = "./data/TD1_data_out.txt",  // Path to the output file to write the encrypted values to
-  parameter int CLK_FREQ_MHZ  = 50                          // Clock frequency in MHz
+  parameter string INPUT_FILENAME   = "./data/pt_ct_pairs.csv",   // Path to the file containing the plaintexts and ciphertexts pairs
+  parameter string OUTPUT_FILENAME  = "./data/TD1_data_out.txt",  // Path to the output file to write the encrypted values to
+  parameter int CLK_FREQ_MHZ        = 50                          // Clock frequency in MHz
 ) ();
 
   //----------------------------------------------------------------
@@ -113,7 +113,7 @@ module aes_tb #(
                           "Try launching `python scripts/gen_aes_test_vectors.py`");
     if (!fd_o)    $fatal(1, "Could not open the output file!");
 
-    // Initialisation: reading/writing CSV column definition
+    // Initialization: reading/writing CSV column definition
     void'($fgets(_, fd_i));
     $fwrite(fd_o, "sv_plaintext, sv_ciphertext\n");
 

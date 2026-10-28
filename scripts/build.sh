@@ -63,6 +63,27 @@ TRANSCRIPT_PATH="$LOGS_PATH/transcript"
 # WLF_PATH="$LOGS_PATH/vsim.wlf"
 WLF_PATH="$LOGS_PATH/vsim.wlf"
 
+#============================================================
+# Function definitions
+#============================================================
+
+print_vlog_result() {
+    local filename="$1"
+    local output="$2"
+    local exit_code="$3"
+
+    echo "$filename:"
+
+    if (( exit_code != 0 )); then
+        # Display complete output on compilation failure
+        echo "$output" | sed 's/^/    /'
+    else
+        # Only show warnings and summary on success
+        echo "$output" |
+            grep -Ei '^\*\* (warning)([^:]*)?:|Errors: [0-9]+, Warnings: [0-9]+' |
+            sed 's/^/    /' || true
+    fi
+}
 
 #============================================================
 # Parameter parsing
@@ -161,6 +182,12 @@ if [[ $TD == "TD1" ]]; then
     python $TD1_GEN_TEST_VECTORS_SCRIPT || exit 1
 fi
 
+# For the first TD, we should generate the plaintext/ciphertext pairs
+if [[ $TD == "TD2" ]]; then
+    echo "Initializing data directory..."
+    mkdir -p data || exit 1
+fi
+
 #============================================================
 # ModelSim initialization
 #============================================================
@@ -172,8 +199,21 @@ if [[ ! -f "$MODELSIM_INI_PATH" ]]; then
     (cd "$LOGS_PATH" && vmap -c) || exit 1
 fi
 
-# Sets the MODELSIM variable, in which modelsim.ini is.
-export MODELSIM="$(realpath "$MODELSIM_INI_PATH")"
+SIM_VERSION=$(vsim -version 2>&1) || exit 1
+INI_PATH="$(realpath "$MODELSIM_INI_PATH")"
+
+if [[ "$SIM_VERSION" == *Questa* ]]; then
+    echo "Detected QuestaSim"
+    export QSIM_INI="$INI_PATH"
+
+elif [[ "$SIM_VERSION" == *ModelSim* ]]; then
+    echo "Detected ModelSim"
+    export MODELSIM="$INI_PATH"
+
+else
+    echo "Error: Unsupported simulator: $SIM_VERSION" >&2
+    exit 1
+fi
 
 #============================================================
 # Checking the shared library's existence
@@ -210,24 +250,28 @@ if [[ $OPT_COMPILE_AES = true ]]; then
     echo "========== [ SOURCES COMPILATION ] =========="
 
     while IFS= read -r -d '' path; do
-        _VLOG_RESULT=$(vlog -sv -work work +acc "$path" 2>&1) || STOP_SCRIPT=1
+        _VLOG_RESULT=$(vlog -sv -work work +acc "$path" 2>&1)
+        VLOG_STATUS=$?
 
-        echo "$(basename "$path"):"
-        echo "$_VLOG_RESULT" | grep -Ei '^\*\* (error|fatal|warning|note):' | sed 's/^/    /' || true
-        echo "$_VLOG_RESULT" | grep -E 'Errors: [0-9]+, Warnings: [0-9]+' | tail -n 1 | sed 's/^/    /' || true
+        if (( VLOG_STATUS != 0 )); then
+            STOP_SCRIPT=1
+        fi
 
+        print_vlog_result "$(basename "$path")" "$_VLOG_RESULT" "$VLOG_STATUS"
     done < <(find "$RTL_FOLDER_PATH" -type f \( -name '*.sv' -o -name '*.v' \) -print0)
 fi
 
 # Compile the AES testbench
 if [[ $OPT_COMPILE_TB = true ]]; then
     echo "========== [ TESTBENCH COMPILATION ] =========="
-    _VLOG_RESULT=$(vlog -sv -work work +acc "$TB_PATH" 2>&1) || STOP_SCRIPT=1
+    _VLOG_RESULT=$(vlog -sv -work work +acc "$TB_PATH" 2>&1)
+    VLOG_STATUS=$?
 
-    echo "$(basename $TB_PATH):"
-    echo "$_VLOG_RESULT" | grep -Ei '^\*\* (error|fatal|warning|note):' | sed 's/^/    /' || true
-    echo "$_VLOG_RESULT" | grep -E 'Errors: [0-9]+, Warnings: [0-9]+' | tail -n 1 | sed 's/^/    /' || true
+    if (( VLOG_STATUS != 0 )); then
+        STOP_SCRIPT=1
+    fi
 
+    print_vlog_result "$(basename "$TB_PATH")" "$_VLOG_RESULT" "$VLOG_STATUS"
 fi
 
 # Creates the coverage file
