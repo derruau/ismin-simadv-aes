@@ -27,7 +27,7 @@ class Inputs;
 endclass: Inputs
 
 module aes_tb #(
-  parameter string OUTPUT_FILENAME    = "data/TD3_data_out.csv",  // Path to the output file to write the encrypted values to
+  parameter string OUTPUT_FILENAME    = "data/TD4_data_out.csv",  // Path to the output file to write the encrypted values to
   parameter int CLK_FREQ_MHZ          = 50,                       // Clock frequency in MHz
   parameter int DEFAULT_NB_ITERATION  = 100                       // Default number of times a random test is generated
 
