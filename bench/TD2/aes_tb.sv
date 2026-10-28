@@ -11,7 +11,7 @@ class Inputs;
 endclass: Inputs
 
 module aes_tb #(
-  parameter string OUTPUT_FILENAME    = "./data/TD1_data_out.txt",  // Path to the output file to write the encrypted values to
+  parameter string OUTPUT_FILENAME    = "./data/TD2_data_out.csv",  // Path to the output file to write the encrypted values to
   parameter int CLK_FREQ_MHZ          = 50,                         // Clock frequency in MHz
   parameter int DEFAULT_NB_ITERATION  = 100                         // Default number of times a random test is generated
 )();
@@ -133,7 +133,7 @@ module aes_tb #(
       // Write results to CSV
       $fwrite(fd_o, "%032h, %032h\n", tb_result, parsed_result_py);
 
-      // Comparation du résultat du testbench avec la réponse de python
+      // Comparation testbench results to the python script's result
       check_result(ival, tb_result, parsed_result_py);
     end
 
